@@ -1,6 +1,7 @@
 from enum import Enum
 import random
 import json
+import re
 import Card
 
 class TurnFase(Enum):
@@ -25,20 +26,9 @@ class Player:
         self.turnfase = TurnFase.NONE
         self.win = False
         self.turncnt = 0
-        #self.deck = deck
-    
+
     def setTurnCnt(self,num):
         self.turncnt = num
-
-    def MakeDeck(self,deckname):
-        with open(deck) as f:
-            deck_data = json.load(f)
-        with open("use_cardlist.json") as f:
-            dic_data = json.load(f)
-        for value in deck_data().values():
-            name = value["name"]
-            for data in dic_data:
-                print()
 
     def Shuffle(self, lst):
         random.shuffle(lst)
@@ -110,8 +100,8 @@ class Player:
 
     def ShieldToWathing(self, num):
         #num番目の盾
-        shild = self.ShieldZone[num]
-        self.SendToWatchingZone([shild])
+        shield = self.ShieldZone[num]
+        self.SendToWatchingZone([shield])
         self.ShieldZone.remove(shield)
 
     def BreakShield(self,lst):
@@ -136,8 +126,9 @@ class Player:
     def ManaTap(self,lis):
         self.TapMana += lis
         for card in lis:
-            self.UntapMana.remove(card)
-    
+            if card in self.UntapMana:
+                self.UntapMana.remove(card)
+
     def SelectUseMana(self,card):
         useMana = []
         while len(useMana) < card.Cost:
@@ -145,22 +136,28 @@ class Player:
             for selected in useMana:
                 if selected in mana: mana.remove(selected)
             print("-------------------------------------------")
-            print(self.GetZoneInfo(mana))
+            print("UntapMana:",self.GetZoneInfo(mana))
             print("Selected:",self.GetZoneInfo(useMana))
-            ipt = input(f"使うマナを選択してください.残り{card.Cost - len(useMana)}枚")
+            ipt = input(f"使うマナを選択してください.command(left)残り{card.Cost - len(useMana)}枚")
+            if ipt == "left":
+                for i in range(card.Cost - len(useMana)):
+                    useMana.append(mana[i])
             try: int_ipt = int(ipt)
-            except : break
-            else: 
-                useMana.append(self.GetCardFromZone(int_ipt, self.UntapMana))
+            except : continue
+            else:
+                target = self.GetCardFromZone(int_ipt, self.UntapMana)
+                if target:
+                    useMana.append(target)
+                else: continue
         return useMana
-    
+
     def GetCardFromZone(self,num,zone):
         for card in zone:
             if card.cardID == num: return card
 
     def GetZoneInfo(self,zone):
         return ",".join(str(card.cardID)+":"+card.Name for card in zone)
-    
+
     def CheckCivil(self,card,lis):
         civils = []
         for mana in lis:
@@ -176,17 +173,16 @@ class Player:
         else:
             print(f"後攻{int(self.turncnt)}ターン目")
         print(self.turnfase)
-        print("Deck:", len(self.Deck))
-        if self.turnfase == TurnFase.NONE:
-            print("Hand:", len(self.Hand))
-        else:
-            print("Hand:", self.GetZoneInfo(self.Hand))
-        print("Sield:", len(self.ShieldZone))
+        print("Deck:", len(self.Deck),"枚")
+        print("Hand:", len(self.Hand),"枚")
+        if self.turnfase != TurnFase.NONE:
+            print("     ", self.GetZoneInfo(self.Hand))
+        print("Sield:", len(self.ShieldZone),"枚")
         mana = self.GetManaInfo()
-        print("Mana:")
+        print("Mana:",len(self.UntapMana)+len(self.TapMana),"枚")
         print("     Untap:",mana[0])
         print("     Tap:",mana[1])
-        print("Grave:", self.GetZoneInfo(self.GraveZone))
+        print("Grave:", len(self.GraveZone),"枚")
         print("BattleZone:", self.GetZoneInfo(self.BattleZone))
 
     def GameReady(self,deckstr):
@@ -249,7 +245,6 @@ class Player:
                     self.ManaTap(mana)
                     self.ShowInfo()
                 else: print("カードが使えません")
-                
 
     def TurnAttack(self):
         self.turnfase = TurnFase.ATTACK
@@ -258,7 +253,7 @@ class Player:
         while True:
             ipt = input("アタックするカードを選んでください.アタックしない場合Enterしてください.")
             try: int_ipt = int(ipt)
-            except: break
+            except: return
             else:
                 target = self.GetCardFromZone(int_ipt, self.BattleZone)
                 if target.Attackable:
@@ -266,10 +261,13 @@ class Player:
                         ipt = input("アタック対象を選んでください.Player or 数字")
                         if ipt == "Player":
                             print(f"{target.Breaker}枚ブレイク")
-                        else: 
+                            target.Attackable == False
+                        else:
                             try: int_ipt = int(ipt)
                             except: break
-                            else: print(f"{int_ipt}にアタック")
+                            else:
+                                print(f"{int_ipt}にアタック")
+                                target.Attackable == False
                 self.ShowInfo()
 
     def TurnEnd(self):
@@ -306,8 +304,17 @@ class Player:
                         if value["card1"]["type1"] == "クリーチャー":
                             if "card2 " in value:
                                 if value["card2"]["type2"] == "呪文": pass
-                            else : 
-                                card_obj = Card.CreatureCard(int(card_id), value["name"], civillist, cost, race, text)
+                            else :
+                                for brkstr in text:
+                                    if not brkstr: breaker = 1
+                                    elif brkstr == "W・ブレイカー": breaker = 2
+                                    elif brkstr == "T・ブレイカー": breaker = 3
+                                    elif brkstr == "Q・ブレイカー": breaker = 4
+                                    elif brkstr == "ワールド・ブレイカー": breaker = 5
+                                    elif brkstr == "G・ブレイカー": breaker =  6
+                                    elif brkstr == "パワード・ブレイカー": breaker = 7
+                                    else: breaker = 1
+                                card_obj = Card.CreatureCard(int(card_id), value["name"], civillist, cost, race, text, value["card1"]["power1"],breaker)
                         elif value["card1"]["type1"] == "呪文":
                             card_obj = Card.SpellCard(int(card_id), value["name"], civillist, cost, race, text)
                         self.Deck.append(card_obj)

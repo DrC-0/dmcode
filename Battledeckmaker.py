@@ -1,4 +1,5 @@
 import json
+import sys
 
 dic_name = 'card_info_dic2.1.json'
 deck1_name = 'Akatan.json'
@@ -6,6 +7,7 @@ deck2_name = 'Aoma.json'
 file_name = "use_cardlist"
 
 def makelist(dic_name,deck1_name,deck2_name,file_name):
+    sys.stdout.reconfigure(encoding='utf-8')
     with open(dic_name) as f:
         dic_data = json.load(f)
     with open(deck1_name) as f:
@@ -19,7 +21,6 @@ def makelist(dic_name,deck1_name,deck2_name,file_name):
         card_name = deck_info['name']
         for list_info in dic_data.values():
             if list_info["name"] == card_name:
-                print(list_info.keys())
                 del list_info["id"], list_info["flavor"], list_info["rare"], list_info["illust"]
                 use_cardlist[str(cnt)] = list_info
                 cnt += 1

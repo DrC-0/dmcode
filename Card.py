@@ -45,23 +45,23 @@ class Card:
         self.Text = Text
 
 class CreatureCard(Card):
-    def init(self, cardID, Name, Civilization, Cost, Race, Text, Power, Breaker):
-        super().init(cardID, Name, Civilization, Cost, Race, Text)
+    def __init__(self, cardID, Name, Civilization, Cost, Race, Text, Power, Breaker):
+        super().__init__(cardID, Name, Civilization, Cost, Race, Text)
         self.Power = Power
         self.Breaker = Breaker
         self.Attackable = False
         self.Blockable = True
         self.Selectable = True
-        self.Type = CardType().CREATURE
+        self.Type = CardType.CREATURE
 
 class SpellCard(Card):
-    def init(self, cardID, Name, Civilization, Cost, Race, Text, SpellType):
-        super().init(cardID, Name, Civilization, Cost, Race, Text)
-        self.Type = CardType().SPELL
+    def __init(self, cardID, Name, Civilization, Cost, Race, Text, SpellType):
+        super().__init(cardID, Name, Civilization, Cost, Race, Text)
+        self.Type = CardType.SPELL
 
 class EvolutionCreatureCard(CreatureCard):
-    def init(self, cardID, Name, Civilization, Cost, Race, Text, BaseCreature, Level):
-        super().init(cardID, Name,  Civilization, Cost, Race, Text)
-        self.Type = CardType().EVOLUTION_CREATURE
+    def __init(self, cardID, Name, Civilization, Cost, Race, Text, BaseCreature, Level):
+        super().__init(cardID, Name,  Civilization, Cost, Race, Text)
+        self.Type = CardType.EVOLUTION_CREATURE
         self.BaseCreature = BaseCreature
         self.Level = Level
