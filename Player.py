@@ -46,8 +46,8 @@ class Player:
     def RemoveDeckTop(self, num):
         self.Deck = self.Deck[num:]
 
-    def SendToHand(self, lst):
-        self.Hand += lst
+    def RemoveDeckBottom(self,num):
+        self.Deck = self.Deck[:-num]
 
     def SendToMana(self, lst):
         for card in lst:
@@ -65,9 +65,6 @@ class Player:
             else:
                 self.BattleZone.append(card)
 
-    def SendToGrave(self, lst):
-        self.GraveZone += lst
-
     def SendToSield(self, lst):
         self.ShieldZone += lst
 
@@ -75,38 +72,59 @@ class Player:
         self.WatchingZone += lst
 
     def Draw(self, num):
-        self.SendToHand(self.GetDeckTop(num))
+        self.AddToZone(self.GetDeckTop(num), self.Hand)
         self.RemoveDeckTop(num)
 
-    def DeckToMana(self, num):
+    def ManaBoost(self, num):
         self.SendToMana(self.GetDeckTop(num))
-        self.RemoveDeckTop(num)
-
-    def DeckToGrave(self, num):
-        self.SendToGrave(self.GetDeckTop(num))
         self.RemoveDeckTop(num)
 
     def DeckToSield(self, num):
         self.SendToSield(self.GetDeckTop(num))
         self.RemoveDeckTop(num)
 
-    def DeckToWatching(self, num):
-        self.SendToWatchingZone(self.GetDeckTop(num))
-        self.RemoveDeckTop(num)
+    def ManaCharge(self, lis):
+        self.SendToMana(lis)
+        self.RemoveFromZone(lis, self.Hand)
 
-    def ManaCharge(self, card):
-        self.SendToMana([card])
-        self.Hand.remove(card)
+    def RemoveFromZone(self,lis,zone):
+        for card in lis:
+            if card in zone: zone.remove(card)
 
-    def ShieldToWathing(self, num):
-        #num番目の盾
-        shield = self.ShieldZone[num]
-        self.SendToWatchingZone([shield])
-        self.ShieldZone.remove(shield)
+    def AddToZone(self,lis,zone):
+        zone += lis
 
-    def BreakShield(self,lst):
-        for i in lst:
-            self.ShieldToWathing(i)
+    def SendCard(self, lis, fromz, toz):
+        self.AddToZone(lis,toz)
+        self.RemoveFromZone(lis, fromz)
+
+
+    def ShieldToWathing(self, lis):
+        #lisに入ってるnum番目の盾
+        shields = []
+        for i in lis:
+            shield = self.ShieldZone[i]
+            shields.append(shield)
+        self.SendCard(shields, self.ShieldZone, self.WatchingZone)
+
+    def UsingSTetc(self):
+        print("-------------------------------------------")
+        print(self.GetZoneInfo(self.WatchingZone))
+        ipt = input("使うカードを選んでください.\n")
+        while True:
+            flg = False
+            try : int_ipt = int(ipt)
+            except : return
+            else: 
+                target = self.GetCardFromZone(int_ipt, self.WatchingZone)
+                if target:
+                    for text in target.Text:
+                        if text.split("(")[0] == "Ｓ・トリガー": flg = True
+                    if flg:
+                        self.SendToBattleZone([target])
+                        self.RemoveFromZone([target], self.WatchingZone)
+                    else: print("そのカードは使えません.")
+                else: print("そのカードは使えません.")
 
     def GetManaInfo(self):
         umanalis = {}
@@ -138,7 +156,7 @@ class Player:
             print("-------------------------------------------")
             print("UntapMana:",self.GetZoneInfo(mana))
             print("Selected:",self.GetZoneInfo(useMana))
-            ipt = input(f"使うマナを選択してください.command(left)残り{card.Cost - len(useMana)}枚")
+            ipt = input(f"使うマナを選択してください.command(left)残り{card.Cost - len(useMana)}枚\n")
             if ipt == "left":
                 for i in range(card.Cost - len(useMana)):
                     useMana.append(mana[i])
@@ -154,6 +172,7 @@ class Player:
     def GetCardFromZone(self,num,zone):
         for card in zone:
             if card.cardID == num: return card
+        return False
 
     def GetZoneInfo(self,zone):
         return ",".join(str(card.cardID)+":"+card.Name for card in zone)
@@ -201,79 +220,6 @@ class Player:
         self.DeckToSield(5)
         self.Draw(5)
         self.turncnt = 0
-
-    def TurnStart(self):
-        self.turnfase = TurnFase.START
-        self.UntapMana += self.TapMana
-        self.TapMana = []
-        for card in self.BattleZone:
-            card.Attackable = True
-        self.ShowInfo()
-        if self.turncnt > 1:
-            self.Draw(1)
-
-    def TurnCharge(self):
-        self.turnfase = TurnFase.CHARGE
-        self.ShowInfo()
-        while True:
-            ipt = input("チャージするものを選んでください.チャージしない場合は0を入力してください.")
-            try:
-                int_ipt = int(ipt)
-            except:
-                    break
-            else:
-                if int_ipt == 0: return
-                self.ManaCharge(self.GetCardFromZone(int_ipt, self.Hand))
-                return
-
-    def TurnUse(self):
-        self.turnfase = TurnFase.USE
-        self.ShowInfo()
-        while True:
-            ipt = input("使うカードを選んでください.使わない場合Enterしてください.")
-            try: int_ipt = int(ipt)
-            except: break
-            else:
-                target = self.GetCardFromZone(int_ipt, self.Hand)
-                if target.Cost > len(self.UntapMana): 
-                    print("カードが使えません")
-                    continue
-                mana = self.SelectUseMana(target)
-                if self.CheckCivil(target, mana): 
-                    self.SendToBattleZone([target])
-                    self.Hand.remove(target)
-                    self.ManaTap(mana)
-                    self.ShowInfo()
-                else: print("カードが使えません")
-
-    def TurnAttack(self):
-        self.turnfase = TurnFase.ATTACK
-        if self.BattleZone == []: return
-        self.ShowInfo()
-        while True:
-            ipt = input("アタックするカードを選んでください.アタックしない場合Enterしてください.")
-            try: int_ipt = int(ipt)
-            except: return
-            else:
-                target = self.GetCardFromZone(int_ipt, self.BattleZone)
-                if target.Attackable:
-                    while True:
-                        ipt = input("アタック対象を選んでください.Player or 数字")
-                        if ipt == "Player":
-                            print(f"{target.Breaker}枚ブレイク")
-                            target.Attackable == False
-                        else:
-                            try: int_ipt = int(ipt)
-                            except: break
-                            else:
-                                print(f"{int_ipt}にアタック")
-                                target.Attackable == False
-                self.ShowInfo()
-
-    def TurnEnd(self):
-        self.turnfase = TurnFase.END
-        self.ShowInfo()
-        self.turnfase = TurnFase.NONE
 
     def makedecklist(self,deckstr):
         with open("use_cardlist.json") as f:
